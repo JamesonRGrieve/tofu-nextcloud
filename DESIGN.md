@@ -26,6 +26,12 @@ Two layers, mirroring `tofu-wordpress`:
   - `app.go` — `app:*` argument builders, `app:list --output=json` parsing
     (`parseAppList` → per-app enabled/version), and the `OCC` app-lifecycle
     methods.
+  - `federation.go` — trusted-server occ argument builders
+    (`federation:trusted-servers:add/remove/list`), the trusted-server list JSON
+    parser (`parseTrustedServers`, three-shape tolerant + URL normalization), the
+    files_sharing federation toggle key constants and their `yes`/`no`-vs-`1`/`0`
+    bool encode/decode (`FederationBoolValue`/`ParseFederationBool`), and the
+    trusted-server `OCC` methods.
   - `version.go` — version parse/compare for the core upgrade decision.
 - **`internal/provider/`** — the framework glue: `provider.go`
   (host/port/user + SSH auth + docroot + web_user) and one `*_resource.go` per
@@ -56,9 +62,36 @@ occ can't later read. The request `ctx` timeout bounds each command.
   correct occ `--type`; nested keys (`memcache.local`, `overwrite.cli.url`,
   `trusted_domains.1`) are addressed by splitting the dotted key into positional
   occ arguments.
-- Singleton-ish resources (`core`, `config`) use a no-op `Delete` — the underlying
-  install/config persists; the resource just stops managing it. `nextcloud_app`
-  and `nextcloud_appconfig` have real deletes (`app:remove`, `config:app:delete`).
+- Singleton-ish resources (`core`, `config`, `federation_config`) use a no-op
+  `Delete` — the underlying install/config persists; the resource just stops
+  managing it. `nextcloud_app`, `nextcloud_appconfig`, and
+  `nextcloud_trusted_server` have real deletes (`app:remove`,
+  `config:app:delete`, `federation:trusted-servers:remove`).
+
+## Federation (netbox-federation realization)
+
+Two resources realize [`netbox-federation`](../netbox-federation) intent for
+Nextcloud (protocol `nextcloud_federated_sharing`) at the consumer layer:
+
+- **`nextcloud_trusted_server`** — one federated peer in the `federation` app
+  trusted-server list, driven by `occ federation:trusted-servers:add/remove/list`.
+  It maps a `FederationPeer`. Create is idempotent (list first, add only when
+  absent); Read drops the resource when the peer is no longer trusted; the peer
+  URL is normalized (trailing slash stripped) for stable matching and imports to
+  0-diff by URL. Changing the URL replaces the resource.
+- **`nextcloud_federation_config`** — the federated-sharing toggles a
+  `FederationRealm` carries: outgoing/incoming server-to-server sharing, outgoing
+  group sharing, auto-accept from trusted servers, and the Global Scale lookup
+  server. It is **manage-declared-only** — a null attribute is never written or
+  reconciled, so it never clobbers a toggle the configuration does not set. The
+  four booleans map onto `files_sharing` app-config keys (encoded `yes`/`no`,
+  except auto-accept which is `1`/`0`); `lookup_server` (non-empty) sets
+  `config:system lookup_server` and enables `lookupServerUploadEnabled`, blank
+  disables it.
+
+Exact occ command/key spellings for the `federation` app trusted-server
+subcommands are confirmed on the lab twin (the verification owed below), mirroring
+how the sibling providers pin their fleet forms in the import drill.
 
 ## Secrets
 

@@ -146,6 +146,8 @@ func (p *nextcloudProvider) Resources(_ context.Context) []func() resource.Resou
 		NewConfigResource,
 		NewAppResource,
 		NewAppConfigResource,
+		NewTrustedServerResource,
+		NewFederationConfigResource,
 	}
 }
 

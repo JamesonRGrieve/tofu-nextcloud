@@ -36,6 +36,18 @@ manage-declared-only diffs, and import-to-0-diff that a `local-exec` script cann
 | `nextcloud_config` | `config.php` system config (manage-declared-only) | `occ config:system:get` / `set` / `delete` (typed, dotted nested keys) |
 | `nextcloud_app` | An app (install/enable/disable/version/remove) | `occ app:install/enable/disable/update/remove/list` |
 | `nextcloud_appconfig` | A single per-app config value | `occ config:app:get` / `set` / `delete` |
+| `nextcloud_trusted_server` | A federated Nextcloud peer (trusted-server list) | `occ federation:trusted-servers:add/remove/list` |
+| `nextcloud_federation_config` | Federated-sharing toggles (manage-declared-only) | `occ config:app:set files_sharing …` + `config:system lookup_server` |
+
+### Federation (netbox-federation consumer)
+
+`nextcloud_trusted_server` and `nextcloud_federation_config` realize
+[`netbox-federation`](../netbox-federation) intent at the consumer layer: a
+`FederationRealm` (a local Nextcloud that federates, protocol
+`nextcloud_federated_sharing`) → `nextcloud_federation_config`; each of its
+`FederationPeer` rows → a `nextcloud_trusted_server`. `nextcloud_federation_config`
+is manage-declared-only — only the toggles the configuration sets are written, so
+an unset attribute is never clobbered on the device.
 
 ## Import IDs
 
@@ -45,6 +57,8 @@ manage-declared-only diffs, and import-to-0-diff that a `local-exec` script cann
 | `nextcloud_config` | `<docroot>` | `tofu import nextcloud_config.site /var/www/nextcloud` |
 | `nextcloud_app` | `<docroot>/<app_id>` (or bare `<app_id>`) | `tofu import nextcloud_app.cal /var/www/nextcloud/calendar` |
 | `nextcloud_appconfig` | `<app_id>/<key>` | `tofu import nextcloud_appconfig.brand theming/color` |
+| `nextcloud_trusted_server` | `<peer_url>` | `tofu import nextcloud_trusted_server.partner https://cloud.partner.org` |
+| `nextcloud_federation_config` | `<docroot>` | `tofu import nextcloud_federation_config.site /var/www/nextcloud` |
 
 Every stateful resource imports to **0-diff** — onboard a live install by
 importing, then planning to confirm no changes.
@@ -65,7 +79,8 @@ every invocation is `sudo -u <web_user> php <docroot>/occ …`. The `web_user`
 
 ## Usage
 
-See [`examples/`](examples/): `provider.tf`, `core.tf`, `config.tf`, and `app.tf`.
+See [`examples/`](examples/): `provider.tf`, `core.tf`, `config.tf`, `app.tf`, and
+`federation.tf`.
 
 ## Development
 

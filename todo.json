@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "domain": "providers.nextcloud",
+  "title": "tofu-nextcloud provider",
+  "description": "Native OpenTofu/Terraform provider for Nextcloud installed state (occ core install/upgrade), config.php system config, app install/enable state, per-app config, and federation (federated sharing / trusted servers) over SSH + occ. Buildable baseline complete: compiles, unit tests pass, gofmt/vet clean, schemas + DESIGN.md done, device-apply logic present but only unit-tested via injected exec (no device ever contacted).",
+  "hierarchy": { "parent": null, "children": [] },
+  "phases": [
+    {
+      "number": 1,
+      "title": "Baseline provider (DONE)",
+      "exit_criteria": "go build/vet/test/gofmt green; resources register; imports to 0-diff by design; secrets write-only.",
+      "items": [
+        { "number": "1.1", "feature": "SSH + occ transport", "description": "os/exec SSH client (key/cert only) + OCC wrapper over an injected Executor; occ runs as the web user.", "sot": "code", "done": true },
+        { "number": "1.2", "feature": "nextcloud_core / _config / _app / _appconfig", "description": "Typed resources, manage-declared-only diff, import-to-0-diff, write-only admin/DB secrets.", "sot": "code", "done": true }
+      ]
+    },
+    {
+      "number": 2,
+      "title": "Federation (netbox-federation realization) (DONE)",
+      "exit_criteria": "nextcloud_trusted_server + nextcloud_federation_config express a FederationRealm (protocol nextcloud_federated_sharing) and its FederationPeers; pure occ builders + trusted-server-list parser table-driven-tested; go build/vet/test/gofmt green.",
+      "items": [
+        { "number": "2.1", "feature": "nextcloud_trusted_server", "description": "DONE: a federated Nextcloud peer in the `federation` app trusted-server list via occ federation:trusted-servers:add/remove/list. Idempotent create (list-then-add), URL normalization (trailing-slash tolerant) for stable matching, import to 0-diff by URL, RequiresReplace on url. Realizes a netbox-federation FederationPeer.", "sot": "code", "done": true },
+        { "number": "2.2", "feature": "nextcloud_federation_config", "description": "DONE: federated-sharing toggles via occ config:app:set files_sharing (outgoing/incoming server2server, outgoing group share, auto-accept from trusted) + Global Scale lookup server (config:system lookup_server + lookupServerUploadEnabled). Manage-declared-only (null attr untouched); yes/no vs 1/0 bool encoding per key. Realizes the sharing side of a netbox-federation FederationRealm.", "sot": "code", "done": true },
+        { "number": "2.3", "feature": "Pure builders + parser under test", "description": "DONE: internal/nextcloud/federation.go holds trusted-server arg builders, three-shape trusted-server-list JSON parser (parseTrustedServers), FederationBoolValue/ParseFederationBool, NormalizeServerURL, TrustedServerPresent — all table-driven unit-tested; OCC methods exercised via injected fake exec.", "sot": "code", "done": true }
+      ]
+    },
+    {
+      "number": 3,
+      "title": "Lab-twin federation drill (verification owed)",
+      "exit_criteria": "Trusted-server add/remove/list and the federated-sharing toggles are proven end-to-end on a lab Nextcloud twin through dev-netbox -> dev-semaphore, at 0-diff on re-apply, with the exact `federation` app occ subcommand/key spellings confirmed against the live occ.",
+      "items": [
+        { "number": "3.1", "feature": "Lab twin build", "description": "Stand up a lab Nextcloud install reachable by the runner over SSH (key/cert), federation app enabled; snapshot before the drill.", "sot": "NB", "done": false },
+        { "number": "3.2", "feature": "Confirm occ trusted-server command form", "description": "Confirm the live `federation` app occ subcommand names + list JSON shape (federation:trusted-servers:{add,remove,list} vs the install's actual command surface); adjust the arg builders / parser shapes if the twin differs.", "sot": "NB", "done": false },
+        { "number": "3.3", "feature": "0-diff re-apply", "description": "Import an existing trusted peer + federated-sharing config and confirm a zero-diff re-plan; exercise add/remove and toggle drift detection.", "sot": "NB", "done": false }
+      ]
+    },
+    {
+      "number": 4,
+      "title": "Consumer-layer wiring in tofu/",
+      "exit_criteria": "A tofu/ module maps netbox-federation FederationRealm/FederationPeer (protocol nextcloud_federated_sharing) -> these resources, driven by prod-semaphore.",
+      "items": [
+        { "number": "4.1", "feature": "netbox-federation SoT read", "description": "Consumer module reads the Nextcloud FederationRealm (its ServiceInstance docroot/url + sharing toggles) and its FederationPeers (peer URLs + trust level) from NetBox and maps them to nextcloud_federation_config + nextcloud_trusted_server.", "sot": "NB", "done": false }
+      ]
+    }
+  ],
+  "state": {}
+}

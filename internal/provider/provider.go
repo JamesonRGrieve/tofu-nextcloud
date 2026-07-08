@@ -78,7 +78,7 @@ func (p *nextcloudProvider) Schema(_ context.Context, _ provider.SchemaRequest, 
 			},
 			"user": schema.StringAttribute{
 				Optional:            true,
-				MarkdownDescription: "SSH user (default `root`). occ is run as `web_user` via sudo.",
+				MarkdownDescription: "SSH user (default `root`). occ is run as `web_user` via `su`.",
 			},
 			"ssh_key_file": schema.StringAttribute{
 				Optional:            true,
@@ -97,7 +97,7 @@ func (p *nextcloudProvider) Schema(_ context.Context, _ provider.SchemaRequest, 
 			},
 			"web_user": schema.StringAttribute{
 				Optional: true,
-				MarkdownDescription: "Web-server user occ is run as via `sudo -u` (Nextcloud data/config must be owned " +
+				MarkdownDescription: "Web-server user occ is run as via `su -s /bin/sh` (Nextcloud data/config must be owned " +
 					"by it). Default `" + nextcloud.DefaultWebUser + "`.",
 			},
 			"timeout": schema.Int64Attribute{

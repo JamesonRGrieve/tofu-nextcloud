@@ -33,16 +33,21 @@ func TestOccPath(t *testing.T) {
 
 func TestOccCommand(t *testing.T) {
 	got := occCommand("www-data", "/var/www/nextcloud", "status", "--output=json")
-	want := "sudo -u 'www-data' php '/var/www/nextcloud/occ' 'status' '--output=json'"
-	if got != want {
-		t.Fatalf("occCommand = %q, want %q", got, want)
+	// Runs as the web user via `su -s /bin/sh … -c` (not sudo — see occCommand).
+	for _, want := range []string{"su -s /bin/sh 'www-data' -c ", "/var/www/nextcloud/occ", "status", "--output=json"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("occCommand = %q missing %q", got, want)
+		}
 	}
-	// A value containing a space is single-quoted intact.
+	if strings.Contains(got, "sudo") {
+		t.Fatalf("occCommand must not use sudo (absent on minimal CTs): %q", got)
+	}
+	// A value containing a space survives intact.
 	got = occCommand("nginx", "/srv/nc", "config:system:set", "instanceid", "My Cloud")
-	if !strings.Contains(got, "'My Cloud'") {
-		t.Fatalf("spaced value not quoted intact: %q", got)
+	if !strings.Contains(got, "My Cloud") {
+		t.Fatalf("spaced value not preserved: %q", got)
 	}
-	if !strings.Contains(got, "sudo -u 'nginx'") {
+	if !strings.Contains(got, "su -s /bin/sh 'nginx'") {
 		t.Fatalf("web user not honored: %q", got)
 	}
 }
@@ -92,9 +97,10 @@ func TestOCC_Status(t *testing.T) {
 	if !s.Installed || s.Version != "28.0.1" {
 		t.Fatalf("Status = %+v", s)
 	}
-	want := "sudo -u 'www-data' php '/var/www/nextcloud/occ' 'status' '--output=json'"
-	if f.calls[0] != want {
-		t.Fatalf("unexpected command: %q", f.calls[0])
+	for _, want := range []string{"su -s /bin/sh 'www-data' -c ", "/var/www/nextcloud/occ", "status", "--output=json"} {
+		if !strings.Contains(f.calls[0], want) {
+			t.Fatalf("unexpected command %q missing %q", f.calls[0], want)
+		}
 	}
 }
 

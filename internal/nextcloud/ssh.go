@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// SSH transport for driving occ (`sudo -u www-data php occ …`) and a handful of
+// SSH transport for driving occ (`su -s /bin/sh www-data -c 'php occ …'`) and a handful of
 // filesystem operations on a Nextcloud host. Nextcloud installed state,
 // config.php (via config:system), and app install/enable state have no HTTP
 // management API — they are managed by running occ and shell commands on the box

@@ -2,7 +2,7 @@
 //
 // occ wrapper. All Nextcloud state is read and written by running `occ` on the
 // host. Because Nextcloud's data and config must be owned by the web-server user,
-// occ is run as that user (`sudo -u www-data php <docroot>/occ …`). The
+// occ is run as that user (`su -s /bin/sh www-data -c 'php <docroot>/occ …'`). The
 // command-building helpers are pure (unit-tested); the run methods go through an
 // injected Executor so the apply logic is testable without a device and NEVER
 // touches a real host in a unit test.
@@ -49,15 +49,18 @@ func occPath(docroot string) string {
 	return strings.TrimRight(docroot, "/") + "/occ"
 }
 
-// occCommand renders an occ invocation string: run as the web user via sudo,
-// invoke php against the install's occ script, and pass the quoted sub-arguments.
+// occCommand renders an occ invocation string: run php against the install's occ
+// script AS the web user, passing the quoted sub-arguments. It drops privilege
+// with `su -s /bin/sh <web_user> -c …` rather than `sudo -u`: sudo is frequently
+// absent on a minimal Debian LXC (util-linux `su` always is), and `-s /bin/sh`
+// overrides the web user's typical `nologin` shell so the command actually runs.
 // Pure — unit-tested.
 func occCommand(webUser, path string, args ...string) string {
-	parts := []string{"sudo", "-u", shQuote(webUser), "php", shQuote(occPath(path))}
+	inner := []string{"php", shQuote(occPath(path))}
 	for _, a := range args {
-		parts = append(parts, shQuote(a))
+		inner = append(inner, shQuote(a))
 	}
-	return strings.Join(parts, " ")
+	return "su -s /bin/sh " + shQuote(webUser) + " -c " + shQuote(strings.Join(inner, " "))
 }
 
 func (o *OCC) run(args ...string) ([]byte, error) {

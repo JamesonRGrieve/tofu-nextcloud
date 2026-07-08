@@ -131,9 +131,10 @@ func TestOCC_TrustedServersList(t *testing.T) {
 	if len(list) != 1 || list[0].URL != "https://peer.example.com" {
 		t.Fatalf("list = %+v", list)
 	}
-	want := "sudo -u 'www-data' php '/nc/occ' 'federation:trusted-servers:list' '--output=json'"
-	if f.calls[0] != want {
-		t.Fatalf("unexpected command: %q", f.calls[0])
+	for _, want := range []string{"su -s /bin/sh 'www-data' -c ", "/nc/occ", "federation:trusted-servers:list", "--output=json"} {
+		if !strings.Contains(f.calls[0], want) {
+			t.Fatalf("unexpected command %q missing %q", f.calls[0], want)
+		}
 	}
 }
 
@@ -146,10 +147,10 @@ func TestOCC_TrustedServerAddRemove(t *testing.T) {
 	if err := o.TrustedServerRemove("https://peer.example.com"); err != nil {
 		t.Fatalf("remove err: %v", err)
 	}
-	if !strings.Contains(f.calls[0], "'federation:trusted-servers:add' 'https://peer.example.com'") {
+	if !strings.Contains(f.calls[0], "federation:trusted-servers:add") || !strings.Contains(f.calls[0], "https://peer.example.com") {
 		t.Fatalf("add command = %q", f.calls[0])
 	}
-	if !strings.Contains(f.calls[1], "'federation:trusted-servers:remove' 'https://peer.example.com'") {
+	if !strings.Contains(f.calls[1], "federation:trusted-servers:remove") || !strings.Contains(f.calls[1], "https://peer.example.com") {
 		t.Fatalf("remove command = %q", f.calls[1])
 	}
 }

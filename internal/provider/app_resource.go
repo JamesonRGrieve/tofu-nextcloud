@@ -5,6 +5,7 @@ package provider
 import (
 	"context"
 
+	"github.com/JamesonRGrieve/tofu-nextcloud/internal/nextcloud"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -100,16 +101,25 @@ func (r *appResource) Create(ctx context.Context, req resource.CreateRequest, re
 	id := m.AppID.ValueString()
 	if r.client != nil && r.client.SSH != nil {
 		occ := r.client.occ(p)
-		// app:install both installs and enables from the app store.
-		if err := occ.AppInstall(id); err != nil {
-			resp.Diagnostics.AddError("occ app:install "+id+" failed", err.Error())
+		// Only fetch from the app store (`app:install`) when the app isn't already
+		// present. A SHIPPED app (e.g. `federation`) is present-but-disabled — for it
+		// `app:install` fails ("app is already installed"/not a store app); the right
+		// action is `app:enable`. So: install only if absent, then reconcile to the
+		// desired enabled state (which enables a present/shipped app or disables it).
+		apps, err := occ.AppList()
+		if err != nil {
+			resp.Diagnostics.AddError("occ app:list failed", err.Error())
 			return
 		}
-		if !m.Enabled.ValueBool() {
-			if err := occ.AppDisable(id); err != nil {
-				resp.Diagnostics.AddError("occ app:disable "+id+" failed", err.Error())
+		if !nextcloud.AppPresent(apps, id) {
+			if err := occ.AppInstall(id); err != nil {
+				resp.Diagnostics.AddError("occ app:install "+id+" failed", err.Error())
 				return
 			}
+		}
+		if err := reconcileAppEnabled(occ, id, m.Enabled.ValueBool()); err != nil {
+			resp.Diagnostics.AddError("occ app enable/disable "+id+" failed", err.Error())
+			return
 		}
 		r.refresh(&m, p)
 	}

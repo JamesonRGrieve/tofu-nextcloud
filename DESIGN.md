@@ -74,11 +74,21 @@ Two resources realize [`netbox-federation`](../netbox-federation) intent for
 Nextcloud (protocol `nextcloud_federated_sharing`) at the consumer layer:
 
 - **`nextcloud_trusted_server`** — one federated peer in the `federation` app
-  trusted-server list, driven by `occ federation:trusted-servers:add/remove/list`.
-  It maps a `FederationPeer`. Create is idempotent (list first, add only when
-  absent); Read drops the resource when the peer is no longer trusted; the peer
-  URL is normalized (trailing slash stripped) for stable matching and imports to
-  0-diff by URL. Changing the URL replaces the resource.
+  trusted-server list. It maps a `FederationPeer`. Create is idempotent (list
+  first, add only when absent); Read drops the resource when the peer is no longer
+  trusted; the peer URL is normalized (trailing slash stripped) for stable
+  matching and imports to 0-diff by URL. Changing the URL replaces the resource.
+  - **⚠ VERIFICATION-OWED / redesign owed (found on the lab, Nextcloud 34):**
+    `occ federation:trusted-servers:add/remove/list` **DOES NOT EXIST** — the
+    `federation` app registers only `federation:sync-addressbooks` /
+    `sync-calendars`. Trusted servers are managed by the **OCS API**
+    (`GET/POST/DELETE /ocs/v2.php/apps/federation/trusted-servers`), which requires
+    **admin auth** (basic auth or an app password). So this resource must be
+    rewritten off occ onto an OCS HTTP transport with an admin credential injected
+    at apply — the occ-only provider config gains an `admin_user` /
+    `admin_password_ref`. Not yet implemented (the lab nextcloud admin credential
+    was not available to lab-prove the rewrite). The occ-based
+    `nextcloud_federation_config` + `nextcloud_app` are proven working.
 - **`nextcloud_federation_config`** — the federated-sharing toggles a
   `FederationRealm` carries: outgoing/incoming server-to-server sharing, outgoing
   group sharing, auto-accept from trusted servers, and the Global Scale lookup
